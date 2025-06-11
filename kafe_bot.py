@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 TOKEN = "8037134302:AAGqZikLopxQ8x7Klb3C_IeYonsRHBtrR1k"
 ADMIN_CHAT_ID = -1002848735369
-ADMIN_ID = 7522562784  # Your brother's Telegram user ID
+ADMIN_ID = 397556747  # Your brother's Telegram user ID
 
 # Database structure
 menu_db = {
