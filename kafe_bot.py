@@ -9,6 +9,10 @@ from telegram.ext import (
     MessageHandler,
     filters
 )
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Setup logging
 logging.basicConfig(
@@ -17,9 +21,10 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-TOKEN = "7850850916:AAFuFUgr6-X-L96Eik2lpuX1kMkw2LrBeKA"
-ADMIN_CHAT_ID = -1002848735369
-ADMIN_ID = 7522562784  # Your brother's Telegram user ID
+# Get environment variables
+TOKEN = os.getenv("TOKEN")
+ADMIN_CHAT_ID = int(os.getenv("ADMIN_CHAT_ID"))
+ADMIN_ID = int(os.getenv("ADMIN_ID"))
 
 # Create images directory if it doesn't exist
 if not os.path.exists('images'):
