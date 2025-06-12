@@ -1,11 +1,12 @@
 import logging
 import os
+from flask import Flask, request
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, InputMediaPhoto
 from telegram.ext import (
-    ApplicationBuilder,
+    Application,
     CommandHandler,
     CallbackQueryHandler,
-    CallbackContext,
+    ContextTypes,
     MessageHandler,
     filters
 )
@@ -25,6 +26,13 @@ logger = logging.getLogger(__name__)
 TOKEN = os.getenv("TOKEN")
 ADMIN_CHAT_ID = int(os.getenv("ADMIN_CHAT_ID"))
 ADMIN_ID = int(os.getenv("ADMIN_ID"))
+WEBHOOK_URL = os.getenv("WEBHOOK_URL")
+
+# Initialize Flask
+app = Flask(__name__)
+
+# Initialize bot
+application = Application.builder().token(TOKEN).build()
 
 # Create images directory if it doesn't exist
 if not os.path.exists('images'):
@@ -56,7 +64,7 @@ menu_db = {
 def is_admin(user_id):
     return user_id == ADMIN_ID
 
-async def start(update: Update, context: CallbackContext):
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     keyboard = [
         [InlineKeyboardButton("Menyu 🍽️", callback_data="view_categories")],
@@ -79,7 +87,7 @@ async def start(update: Update, context: CallbackContext):
             reply_markup=reply_markup
         )
 
-async def view_categories(update: Update, context: CallbackContext):
+async def view_categories(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     
@@ -95,7 +103,7 @@ async def view_categories(update: Update, context: CallbackContext):
     reply_markup = InlineKeyboardMarkup(keyboard)
     await query.edit_message_text(text="Kategoriya tanlang:", reply_markup=reply_markup)
 
-async def view_category(update: Update, context: CallbackContext):
+async def view_category(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     cat_id = query.data.split("_")[-1]
@@ -129,7 +137,7 @@ async def view_category(update: Update, context: CallbackContext):
     else:
         await query.edit_message_text(text=category["name"], reply_markup=reply_markup)
 
-async def add_to_cart(update: Update, context: CallbackContext):
+async def add_to_cart(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     
@@ -155,7 +163,7 @@ async def add_to_cart(update: Update, context: CallbackContext):
     
     await query.answer(f"✅ {item['name']} savatga qo'shildi!")
 
-async def view_cart(update: Update, context: CallbackContext):
+async def view_cart(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     
@@ -192,7 +200,7 @@ async def view_cart(update: Update, context: CallbackContext):
     reply_markup = InlineKeyboardMarkup(keyboard)
     await query.edit_message_text(text=cart_text, reply_markup=reply_markup)
 
-async def clear_cart(update: Update, context: CallbackContext):
+async def clear_cart(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     
@@ -203,7 +211,7 @@ async def clear_cart(update: Update, context: CallbackContext):
     reply_markup = InlineKeyboardMarkup(keyboard)
     await query.edit_message_text(text="Savat tozalandi!", reply_markup=reply_markup)
 
-async def request_phone(update: Update, context: CallbackContext):
+async def request_phone(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     
@@ -219,7 +227,7 @@ async def request_phone(update: Update, context: CallbackContext):
         reply_markup=reply_markup
     )
 
-async def place_order(update: Update, context: CallbackContext):
+async def place_order(update: Update, context: ContextTypes.DEFAULT_TYPE):
     phone_number = context.user_data.get("phone_number")
     
     # Prepare order details
@@ -262,7 +270,7 @@ async def place_order(update: Update, context: CallbackContext):
         ])
     )
 
-async def admin_panel(update: Update, context: CallbackContext):
+async def admin_panel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     
@@ -279,7 +287,7 @@ async def admin_panel(update: Update, context: CallbackContext):
     reply_markup = InlineKeyboardMarkup(keyboard)
     await query.edit_message_text(text="⚙️ Admin Panel:", reply_markup=reply_markup)
 
-async def admin_add_category(update: Update, context: CallbackContext):
+async def admin_add_category(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     await query.edit_message_text(
@@ -290,7 +298,7 @@ async def admin_add_category(update: Update, context: CallbackContext):
     )
     context.user_data["admin_action"] = "awaiting_category_name"
 
-async def admin_view_categories(update: Update, context: CallbackContext):
+async def admin_view_categories(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     
@@ -304,7 +312,7 @@ async def admin_view_categories(update: Update, context: CallbackContext):
     reply_markup = InlineKeyboardMarkup(keyboard)
     await query.edit_message_text(text="Tahrirlash uchun kategoriyani tanlang:", reply_markup=reply_markup)
 
-async def admin_edit_category(update: Update, context: CallbackContext):
+async def admin_edit_category(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     cat_id = query.data.split("_")[-1]
@@ -321,7 +329,7 @@ async def admin_edit_category(update: Update, context: CallbackContext):
     reply_markup = InlineKeyboardMarkup(keyboard)
     await query.edit_message_text(text=f"Kategoriya: {category['name']}", reply_markup=reply_markup)
 
-async def admin_view_items(update: Update, context: CallbackContext):
+async def admin_view_items(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     cat_id = query.data.split("_")[-1]
@@ -347,7 +355,7 @@ async def admin_view_items(update: Update, context: CallbackContext):
     reply_markup = InlineKeyboardMarkup(keyboard)
     await query.edit_message_text(text=items_text, reply_markup=reply_markup)
 
-async def admin_add_item_select_category(update: Update, context: CallbackContext):
+async def admin_add_item_select_category(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     
@@ -361,7 +369,7 @@ async def admin_add_item_select_category(update: Update, context: CallbackContex
     reply_markup = InlineKeyboardMarkup(keyboard)
     await query.edit_message_text(text="Mahsulot qo'shish uchun kategoriyani tanlang:", reply_markup=reply_markup)
 
-async def admin_add_item(update: Update, context: CallbackContext):
+async def admin_add_item(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     cat_id = query.data.split("_")[-1]
@@ -374,7 +382,7 @@ async def admin_add_item(update: Update, context: CallbackContext):
         ])
     )
 
-async def admin_change_category_name(update: Update, context: CallbackContext):
+async def admin_change_category_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     cat_id = query.data.split("_")[-1]
@@ -387,7 +395,7 @@ async def admin_change_category_name(update: Update, context: CallbackContext):
         ])
     )
 
-async def admin_change_category_image(update: Update, context: CallbackContext):
+async def admin_change_category_image(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     cat_id = query.data.split("_")[-1]
@@ -400,7 +408,7 @@ async def admin_change_category_image(update: Update, context: CallbackContext):
         ])
     )
 
-async def admin_delete_category(update: Update, context: CallbackContext):
+async def admin_delete_category(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     cat_id = query.data.split("_")[-1]
@@ -412,7 +420,7 @@ async def admin_delete_category(update: Update, context: CallbackContext):
         ])
     )
 
-async def admin_handle_messages(update: Update, context: CallbackContext):
+async def admin_handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_admin(update.effective_user.id) and not context.user_data.get("awaiting_phone"):
         return
     
@@ -623,10 +631,19 @@ async def admin_handle_messages(update: Update, context: CallbackContext):
                 "❌ Iltimos, rasm yuboring!"
             )
 
-def main():
-    application = ApplicationBuilder().token(TOKEN).build()
+# Webhook endpoint
+@app.route('/', methods=['POST'])
+def webhook():
+    update = Update.de_json(request.get_json(), application.bot)
+    application.process_update(update)
+    return "OK", 200
+
+# Set webhook and run Flask app
+if __name__ == "__main__":
+    application.bot.set_webhook(url=WEBHOOK_URL)
+    app.run(host='0.0.0.0', port=8000)
     
-    # User commands
+    # Add handlers after webhook setup
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CallbackQueryHandler(start, pattern="back_to_start"))
     application.add_handler(CallbackQueryHandler(view_categories, pattern="view_categories"))
@@ -636,7 +653,6 @@ def main():
     application.add_handler(CallbackQueryHandler(clear_cart, pattern="clear_cart"))
     application.add_handler(CallbackQueryHandler(request_phone, pattern="request_phone"))
     
-    # Admin commands
     application.add_handler(CallbackQueryHandler(admin_panel, pattern="admin_panel"))
     application.add_handler(CallbackQueryHandler(admin_add_category, pattern="admin_add_category"))
     application.add_handler(CallbackQueryHandler(admin_view_categories, pattern="admin_view_categories"))
@@ -648,9 +664,3 @@ def main():
     application.add_handler(CallbackQueryHandler(admin_change_category_image, pattern="admin_change_category_image_"))
     application.add_handler(CallbackQueryHandler(admin_delete_category, pattern="admin_delete_category_"))
     application.add_handler(MessageHandler(filters.PHOTO | filters.TEXT & ~filters.COMMAND, admin_handle_messages))
-    
-    print("Bot ishga tushdi...")
-    application.run_polling()
-
-if __name__ == "__main__":
-    main()
