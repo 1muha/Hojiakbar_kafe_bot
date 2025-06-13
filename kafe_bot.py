@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 TOKEN = "7850850916:AAFuFUgr6-X-L96Eik2lpuX1kMkw2LrBeKA"
 ADMIN_CHAT_ID = -1002848735369
-ADMIN_ID = 7522562784  # Your brother's Telegram user ID
+ADMIN_ID = 397556747  # Your brother's Telegram user ID
 
 # Create images directory if it doesn't exist
 if not os.path.exists('images'):
