@@ -1,5 +1,6 @@
 import logging
 import os
+import asyncio
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, InputMediaPhoto
 from telegram.ext import (
     ApplicationBuilder,
@@ -9,10 +10,11 @@ from telegram.ext import (
     MessageHandler,
     filters
 )
+from aiohttp import web
 
 # Setup logging
 logging.basicConfig(
-    format='%(asctime)s - %(nexitame)s - %(levelname)s - %(message)s',
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     level=logging.INFO
 )
 logger = logging.getLogger(__name__)
@@ -391,14 +393,14 @@ async def admin_change_category_image(update: Update, context: CallbackContext):
     await query.edit_message_text(
         "Yangi rasmni yuboring:",
         reply_markup=InlineKeyboardMarkup([
-            [InlineKeyboardButton("Bekor qilish", callback_data=f"admin_edit_category_{cat_id}")]
+            f"admin_edit_category_{cat_id}"
         ])
     )
 
 async def admin_delete_category(update: Update, context: CallbackContext):
     query = update.callback_query
     await query.answer()
-    cat_id = query.data.split("_")[-1]
+    cat_id = query.data.split("_")[1]  # Fixed indexing
     del menu_db["categories"][cat_id]
     await query.edit_message_text(
         f"Kategoriya o'chirildi!",
@@ -416,7 +418,7 @@ async def admin_handle_messages(update: Update, context: CallbackContext):
         # Basic phone number validation
         if not phone_number.startswith("+") or not phone_number[1:].isdigit():
             await update.message.reply_text(
-                "❌ Noto'g'ri telefon raqami! Iltimos, to'g'ri formatda yuboring (masalan: +998901234567):",
+                f"❌ Noto'g'ri telefon raqami! Iltimos, to'g'ri formatda yuboring (masalan: +998901234567):",
                 reply_markup=InlineKeyboardMarkup([
                     [InlineKeyboardButton("Bekor qilish", callback_data="view_cart")]
                 ])
@@ -424,6 +426,7 @@ async def admin_handle_messages(update: Update, context: CallbackContext):
             return
         
         context.user_data["phone_number"] = phone_number
+        context.user_data["awaiting"] = True
         await place_order(update, context)
         return
     
@@ -480,14 +483,14 @@ async def admin_handle_messages(update: Update, context: CallbackContext):
             except Exception as e:
                 logger.error(f"Error saving category image: {e}")
                 await update.message.reply_text(
-                    "❌ Rasmni saqlashda xatolik yuz berdi. Qaytadan urinib ko'ring.",
+                    f"❌ Rasmni saqlashda xatolik yuz berdi. Qaytadan urinib ko'ring.",
                     reply_markup=InlineKeyboardMarkup([
                         [InlineKeyboardButton("Admin Panel", callback_data="admin_panel")]
                     ])
                 )
         else:
             await update.message.reply_text(
-                "❌ Iltimos, rasm yuboring yoki 'Rasmni o'tkazib yuborish' tugmasini bosing!"
+                f"❌ Iltimos, rasm yuboring yoki 'Rasmni o'tkazib yuborish' tugmasini bosing!"
             )
     
     elif action == "awaiting_item_name":
@@ -526,7 +529,7 @@ async def admin_handle_messages(update: Update, context: CallbackContext):
         
         except ValueError:
             await update.message.reply_text(
-                "❌ Noto'g'ri format! Faqat raqam kiriting (masalan: 15000)"
+                f"❌ Noto'g'ri format! Faqat raqam kiriting (masalan: 15000)"
             )
     
     elif action == "awaiting_item_image":
@@ -562,14 +565,14 @@ async def admin_handle_messages(update: Update, context: CallbackContext):
             except Exception as e:
                 logger.error(f"Error saving item image: {e}")
                 await update.message.reply_text(
-                    "❌ Rasmni saqlashda xatolik yuz berdi. Qaytadan urinib ko'ring.",
+                    f"❌ Rasmni saqlashda xatolik yuz berdi. Qaytadan urinib ko'ring.",
                     reply_markup=InlineKeyboardMarkup([
                         [InlineKeyboardButton("Kategoriyaga qaytish", callback_data=f"admin_edit_category_{context.user_data['current_category']}")]
                     ])
                 )
         else:
             await update.message.reply_text(
-                "❌ Iltimos, rasm yuboring yoki 'Rasmni o'tkazib yuborish' tugmasini bosing!"
+                f"❌ Iltimos, rasm yuboring yoki 'Rasmni o'tkazib yuborish' tugmasini bosing!"
             )
     
     elif action == "awaiting_new_category_name":
@@ -608,18 +611,34 @@ async def admin_handle_messages(update: Update, context: CallbackContext):
             except Exception as e:
                 logger.error(f"Error saving category image: {e}")
                 await update.message.reply_text(
-                    "❌ Rasmni saqlashda xatolik yuz berdi. Qaytadan urinib ko'ring.",
+                    f"❌ Rasmni saqlashda xatolik yuz berdi. Qaytadan urinib ko'ring.",
                     reply_markup=InlineKeyboardMarkup([
                         [InlineKeyboardButton("Ortga 🔙", callback_data=f"admin_edit_category_{cat_id}")]
                     ])
                 )
         else:
             await update.message.reply_text(
-                "❌ Iltimos, rasm yuboring!"
+                f"❌ Iltimos, rasm yuboring!"
             )
 
-def main():
-    application = ApplicationBuilder().token(TOKEN).build()
+async def webhook(request):
+    """Handle incoming Telegram updates via webhook."""
+    app = request.app["bot"]
+    data = await request.json()
+    update = Update.de_json(data, app.bot)
+    await app.process_update(update)
+    return web.Response(status=200)
+
+async def main():
+    """Main function to set up and run the bot with webhooks."""
+    # Get bot token from environment variable
+    token = os.getenv("TELEGRAM_BOT_TOKEN")
+    if not token:
+        logger.error("TELEGRAM_BOT_TOKEN environment variable not set")
+        raise ValueError("TELEGRAM_BOT_TOKEN environment variable not set")
+
+    # Initialize the bot application
+    application = ApplicationBuilder().token(token).build()
 
     # User commands
     application.add_handler(CommandHandler("start", start))
@@ -644,8 +663,33 @@ def main():
     application.add_handler(CallbackQueryHandler(admin_delete_category, pattern="admin_delete_category_"))
     application.add_handler(MessageHandler(filters.PHOTO | filters.TEXT & ~filters.COMMAND, admin_handle_messages))
     
-    print("Bot ishga tushdi...")
-    application.run_polling()
+    # Set up aiohttp server
+    web_app = web.Application()
+    web_app["bot"] = application
+    web_app.router.add_post(f"/{token}", webhook)
+
+    # Start the HTTP server
+    port = int(os.getenv("PORT", 10000))
+    runner = web.AppRunner(web_app)
+    await runner.setup()
+    site = web.TCPSite(runner, "0.0.0.0", port)
+    await site.start()
+
+    # Set Telegram webhook
+    webhook_url = os.getenv("WEBHOOK_URL", f"https://your-render-subdomain.onrender.com/{token}")
+    await application.bot.set_webhook(webhook_url)
+    logger.info(f"Webhook set to {webhook_url}")
+
+    # Initialize and start the bot
+    await application.initialize()
+    await application.start()
+
+    # Keep the application running
+    try:
+        await asyncio.Event().wait()
+    finally:
+        await application.stop()
+        await runner.cleanup()
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
